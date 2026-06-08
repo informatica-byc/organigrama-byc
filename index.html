@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organigrama - Gerencia Financiera | B&C Exportadores</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f9fafb; color: #1f2937; }
+  .container { max-width: 1500px; margin: 0 auto; padding: 1.5rem; }
+
+  .header-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;
+  }
+  .header-bar h1 { font-size: 20px; font-weight: 700; }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 0.4rem 0.8rem; border-radius: 20px; }
+  .status.online { background: #dcfce7; color: #16a34a; }
+  .status.offline { background: #fee2e2; color: #dc2626; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  .toolbar {
+    display: flex; gap: 0.8rem; margin-bottom: 1.5rem; padding: 1rem;
+    background: white; border-radius: 12px; flex-wrap: wrap; border: 1px solid #e5e7eb;
+  }
+  .btn {
+    padding: 0.6rem 1rem; border: 1px solid #d1d5db; border-radius: 8px;
+    background: white; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;
+  }
+  .btn:hover { background: #f3f4f6; }
+  .btn.primary { background: #3b82f6; color: white; border-color: #3b82f6; }
+  .btn.primary:hover { background: #2563eb; }
+  .btn.save { background: #16a34a; color: white; border-color: #16a34a; }
+  .btn.save:hover { background: #15803d; }
+  .sep { width: 1px; height: 24px; background: #e5e7eb; align-self: center; }
+
+  .canvas-wrapper { border: 1px solid #e5e7eb; border-radius: 12px; background: white; overflow: auto; }
+  #orgChart { display: block; background: white; margin: 0 auto; }
+
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+  .modal.show { display: flex; }
+  .modal-content { background: white; padding: 1.5rem; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 20px 25px rgba(0,0,0,0.15); }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 1rem; }
+  .form-group { margin-bottom: 1rem; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 0.5rem; color: #374151; }
+  .form-input { width: 100%; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+  .form-input:focus { outline: none; border-color: #3b82f6; }
+  .modal-buttons { display: flex; gap: 0.8rem; margin-top: 1rem; }
+  .modal-buttons button { flex: 1; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px; }
+  .modal-buttons .primary { background: #3b82f6; color: white; border-color: #3b82f6; }
+  .action-btn { width: 100%; padding: 0.6rem; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px; margin-bottom: 0.5rem; }
+  .add-p { border: 1px solid #22c55e; color: #16a34a; background: white; }
+  .del-p { border: 1px solid #ef4444; color: #ef4444; background: white; }
+
+  .info { padding: 0.8rem; background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 8px; margin-bottom: 1rem; font-size: 12px; color: #1e40af; }
+  .config-warning { padding: 1rem; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; margin-bottom: 1rem; font-size: 13px; color: #92400e; }
+  .config-warning code { background: #fde68a; padding: 2px 6px; border-radius: 4px; }
+  .readonly-badge { padding: 0.4rem 0.8rem; background: #f3f4f6; border-radius: 6px; font-size: 12px; color: #6b7280; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <h1>📊 Organigrama - Gerencia Financiera</h1>
+    <div id="status" class="status offline">
+      <span class="status-dot"></span>
+      <span id="statusText">Conectando...</span>
+    </div>
+  </div>
+
+  <div id="configWarning" class="config-warning" style="display:none;">
+    ⚠️ <strong>Firebase no configurado.</strong> Edita la sección <code>firebaseConfig</code> en el código con tus credenciales de Firebase para activar la sincronización en tiempo real. Mientras tanto funciona en modo local.
+  </div>
+
+  <div class="toolbar">
+    <button class="btn save" onclick="saveToFirebase()" id="saveBtn">💾 Guardar cambios</button>
+    <div class="sep"></div>
+    <button class="btn primary" onclick="exportPDF()">📥 PDF</button>
+    <button class="btn primary" onclick="exportImage()">🖼️ Imagen</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="expandAll()">+ Expandir</button>
+    <button class="btn" onclick="collapseAll()">- Contraer</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="addDepartment()" style="color: #16a34a; border-color: #22c55e;">➕ Nuevo Dpto</button>
+    <div class="sep"></div>
+    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 0.6rem 1rem; border: 1px solid #d1d5db; border-radius: 8px; background: white; font-weight: 500; font-size: 13px;">
+      📎 Logo
+      <input type="file" id="logoFile" accept="image/*" style="display: none;" onchange="loadLogo(event)">
+    </label>
+  </div>
+
+  <div class="info">💡 Clic en ⊕ para expandir. Clic en cualquier caja para editar. Pulsa <strong>Guardar cambios</strong> para sincronizar con todos en tiempo real.</div>
+
+  <div class="canvas-wrapper">
+    <canvas id="orgChart" width="1400" height="500"></canvas>
+  </div>
+</div>
+
+<div id="editModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-title" id="modalTitle">Editar</div>
+    <div class="form-group">
+      <label class="form-label">Nombre</label>
+      <input type="text" class="form-input" id="editName">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Puesto</label>
+      <input type="text" class="form-input" id="editRole">
+    </div>
+    <div id="addPersonBtn" style="display: none;">
+      <button class="action-btn add-p" onclick="addPerson()">+ Agregar persona a este departamento</button>
+    </div>
+    <div id="delBtn" style="display: none;">
+      <button class="action-btn del-p" onclick="deleteNode()">🗑️ Eliminar</button>
+    </div>
+    <div class="modal-buttons">
+      <button class="primary" onclick="saveEdit()">Aceptar</button>
+      <button onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  // ============================================================
+  //  CONFIGURACIÓN DE FIREBASE  -  REEMPLAZA CON TUS CREDENCIALES
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyCgxkhTCPOOl21u6V4LMz59SAo9naptuT0",
+    authDomain: "orgama-byc.firebaseapp.com",
+    databaseURL: "https://orgama-byc-default-rtdb.firebaseio.com",
+    projectId: "orgama-byc",
+    storageBucket: "orgama-byc.firebasestorage.app",
+    messagingSenderId: "493206148286",
+    appId: "1:493206148286:web:60ce427838f9717e22faef"
+  };
+  // ============================================================
+
+  const isConfigured = firebaseConfig.apiKey !== "TU_API_KEY";
+  let db = null;
+  const DB_PATH = 'organigrama/gerenciaFinanciera';
+
+  if (isConfigured) {
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getDatabase(app);
+      window._firebaseRef = ref(db, DB_PATH);
+      window._firebaseSet = set;
+
+      onValue(window._firebaseRef, (snapshot) => {
+        const val = snapshot.val();
+        setStatus(true, 'Conectado - Tiempo real');
+        if (val && val.data) {
+          window.applyRemoteData(val.data);
+        }
+      }, (error) => {
+        setStatus(false, 'Error de conexión');
+        console.error(error);
+      });
+    } catch (e) {
+      setStatus(false, 'Error Firebase');
+      document.getElementById('configWarning').style.display = 'block';
+      console.error(e);
+    }
+  } else {
+    setStatus(false, 'Modo local (sin Firebase)');
+    document.getElementById('configWarning').style.display = 'block';
+  }
+
+  function setStatus(online, text) {
+    const el = document.getElementById('status');
+    el.className = 'status ' + (online ? 'online' : 'offline');
+    document.getElementById('statusText').textContent = text;
+  }
+
+  window._saveToFirebase = function(dataObj) {
+    if (!db) {
+      alert('Firebase no está configurado. Los cambios solo se guardan localmente.\n\nEdita la sección firebaseConfig en el código para activar el tiempo real.');
+      return;
+    }
+    window._firebaseSet(window._firebaseRef, {
+      data: dataObj,
+      updatedAt: new Date().toISOString()
+    }).then(() => {
+      const btn = document.getElementById('saveBtn');
+      const orig = btn.textContent;
+      btn.textContent = '✓ Guardado';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(e => {
+      alert('Error al guardar: ' + e.message);
+    });
+  };
+</script>
+
+<script>
+const canvas = document.getElementById('orgChart');
+const ctx = canvas.getContext('2d');
+let logoImage = null;
+let editingNode = null;
+let editingDept = null;
+let nodeMap = new Map();
+let suppressRemote = false;
+
+let data = {
+  id: 'root', name: 'GERENCIA FINANCIERA', role: 'Dirección General', color: '#dbeafe', icon: '📊', expanded: true,
+  children: [
+    { id: 'contab', name: 'Contabilidad', role: 'Jefe de Contabilidad', color: '#dcfce7', icon: '📋', expanded: false,
+      children: [
+        { id: 'p1', name: 'Marlen Arias', role: 'Jefatura Administrativa SC', color: '#bbf7d0', icon: '👔', children: [] },
+        { id: 'p2', name: 'Nidia', role: 'Asistente Cuentas x Pagar SC', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p3', name: 'VACANTE', role: 'Asistente Cuentas x Pagar Ujarrás', color: '#fee2e2', icon: '⚠️', children: [] },
+        { id: 'p4', name: 'José Luis', role: 'Asistente Cuentas x Pagar BC', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p5', name: 'Jonathan Ramos', role: 'Cuentas x Pagar Agricultores', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p6', name: 'Kevin & Daniela', role: 'Asistente Costos PT', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p7', name: 'Jorge Emilio', role: 'Asistente Costos MP', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p8', name: 'Jenny Calvo', role: 'Asistente Costos BC', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p9', name: 'Viviana Ovando', role: 'Asistente Costos Agricultura', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p10', name: 'Marta Víquez', role: 'Asistente de Jefatura Contabilidad', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p11', name: 'Keren Calvo', role: 'Asistente Control de Activos', color: '#dcfce7', icon: '👤', children: [] },
+        { id: 'p12', name: 'Yarenis, Rocío, Karla', role: 'Recepcionistas', color: '#dcfce7', icon: '👥', children: [] }
+      ]
+    },
+    { id: 'control', name: 'Control Interno', role: 'Sergio Ballestero', color: '#f3e8ff', icon: '🛡️', expanded: false,
+      children: [
+        { id: 'p13', name: 'Michelle', role: 'Auxiliar Control Interno', color: '#f3e8ff', icon: '👤', children: [] },
+        { id: 'p14', name: 'María Paula', role: 'Auxiliar Control Interno', color: '#f3e8ff', icon: '👤', children: [] }
+      ]
+    },
+    { id: 'tesor', name: 'Tesorería', role: 'Gestión de Efectivo', color: '#fef3c7', icon: '💰', expanded: false,
+      children: [
+        { id: 'p15', name: 'Desireth', role: 'Tesorera', color: '#fde68a', icon: '👔', children: [] },
+        { id: 'p16', name: 'Daniela Meza', role: 'Tesorería Cuentas x Pagar', color: '#fef3c7', icon: '👤', children: [] }
+      ]
+    },
+    { id: 'analisis', name: 'Análisis Financiero', role: 'Reportes y Análisis', color: '#fce7f3', icon: '📈', expanded: false,
+      children: [
+        { id: 'p17', name: 'Ana Christina Calvo', role: 'Analista Financiero', color: '#fce7f3', icon: '👤', children: [] }
+      ]
+    },
+    { id: 'ti', name: 'TI', role: 'Tecnología', color: '#dbeafe', icon: '💻', expanded: false,
+      children: [
+        { id: 'p18', name: 'Guillermo Quesada', role: 'Soporte Funcional', color: '#dbeafe', icon: '👤', children: [] },
+        { id: 'p19', name: 'Kevin', role: 'Soporte Técnico', color: '#dbeafe', icon: '👤', children: [] }
+      ]
+    }
+  ]
+};
+
+function roundRect(x, y, w, h, r) {
+  if (w < 2*r) r = w/2;
+  if (h < 2*r) r = h/2;
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function loadLogo(e) {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => { logoImage = img; draw(); };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+const DEPT_SPACING = 260;
+const MIN_WIDTH = 1000;
+
+function calculateDimensions() {
+  const numDepts = data.children.length;
+  const requiredWidth = Math.max(MIN_WIDTH, numDepts * DEPT_SPACING + 100);
+  let maxExpanded = 0;
+  data.children.forEach(dept => {
+    if (dept.expanded) maxExpanded = Math.max(maxExpanded, dept.children.length);
+  });
+  const requiredHeight = 300 + (maxExpanded * 72) + 80;
+  return { width: requiredWidth, height: Math.max(500, requiredHeight) };
+}
+
+function draw() {
+  const dims = calculateDimensions();
+  canvas.width = dims.width;
+  canvas.height = dims.height;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const centerX = canvas.width / 2;
+
+  ctx.fillStyle = '#1f2937';
+  ctx.font = 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('GERENCIA FINANCIERA', centerX, 35);
+  ctx.font = '12px Arial';
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText('B&C Exportadores | Bajo Cero Productos Congelados', centerX, 52);
+
+  if (logoImage) ctx.drawImage(logoImage, canvas.width-90, 12, 70, 45);
+
+  nodeMap.clear();
+
+  const rootY = 75, rootW = 200, rootH = 75;
+  ctx.fillStyle = data.color;
+  roundRect(centerX-rootW/2, rootY, rootW, rootH, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#1f2937'; ctx.font = '14px Arial'; ctx.textAlign = 'center';
+  ctx.fillText(data.icon + ' ' + data.name, centerX, rootY+28);
+  ctx.font = '11px Arial'; ctx.fillStyle = '#6b7280';
+  ctx.fillText(data.role, centerX, rootY+52);
+  data.rect = { x: centerX-rootW/2, y: rootY, width: rootW, height: rootH };
+  nodeMap.set(data.id, data);
+
+  const deptY = 200;
+  const numDepts = data.children.length;
+  const totalW = (numDepts-1) * DEPT_SPACING;
+  const startX = centerX - totalW/2;
+
+  ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(centerX, rootY+rootH);
+  ctx.lineTo(centerX, deptY-30);
+  ctx.stroke();
+
+  if (numDepts > 1) {
+    ctx.beginPath();
+    ctx.moveTo(startX, deptY-30);
+    ctx.lineTo(startX + totalW, deptY-30);
+    ctx.stroke();
+  }
+
+  data.children.forEach((dept, i) => {
+    const deptX = startX + i * DEPT_SPACING;
+    const deptW = 150, deptH = 70;
+
+    ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(deptX, deptY-30);
+    ctx.lineTo(deptX, deptY);
+    ctx.stroke();
+
+    ctx.fillStyle = dept.color;
+    roundRect(deptX-deptW/2, deptY, deptW, deptH, 10);
+    ctx.fill();
+    ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#1f2937'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center';
+    ctx.fillText(dept.icon + ' ' + dept.name, deptX, deptY+25);
+    ctx.font = '10px Arial'; ctx.fillStyle = '#6b7280';
+    ctx.fillText(dept.role, deptX, deptY+45);
+
+    if (dept.children.length > 0) {
+      const bs = 24, bx = deptX, by = deptY+deptH+18;
+      ctx.fillStyle = dept.expanded ? '#3b82f6' : '#22c55e';
+      ctx.beginPath();
+      ctx.arc(bx, by, bs/2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(dept.expanded ? '−' : '+', bx, by);
+      ctx.textBaseline = 'alphabetic';
+      dept.btnPos = { x: bx, y: by, size: bs };
+    }
+
+    dept.rect = { x: deptX-deptW/2, y: deptY, width: deptW, height: deptH };
+    nodeMap.set(dept.id, dept);
+
+    if (dept.expanded && dept.children.length > 0) {
+      const teamStartY = deptY + deptH + 50;
+      const teamSpacing = 72;
+
+      ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(deptX, deptY+deptH+30);
+      ctx.lineTo(deptX, teamStartY);
+      ctx.stroke();
+
+      dept.children.forEach((person, j) => {
+        const py = teamStartY + j * teamSpacing;
+        const pw = 170, ph = 56;
+
+        if (j > 0) {
+          ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(deptX, py - teamSpacing + ph);
+          ctx.lineTo(deptX, py);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = person.color;
+        roundRect(deptX-pw/2, py, pw, ph, 8);
+        ctx.fill();
+        ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = '#1f2937'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
+        ctx.fillText(person.icon + ' ' + person.name, deptX, py+22);
+        ctx.font = '9px Arial'; ctx.fillStyle = '#6b7280';
+        ctx.fillText(person.role, deptX, py+40);
+
+        person.rect = { x: deptX-pw/2, y: py, width: pw, height: ph };
+        nodeMap.set(person.id, person);
+      });
+    }
+  });
+}
+
+canvas.onclick = (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+
+  for (let [id, node] of nodeMap) {
+    if (node.btnPos) {
+      const d = Math.hypot(x-node.btnPos.x, y-node.btnPos.y);
+      if (d < node.btnPos.size/2+6) {
+        node.expanded = !node.expanded;
+        draw();
+        return;
+      }
+    }
+  }
+
+  for (let [id, node] of nodeMap) {
+    if (node.rect) {
+      const r = node.rect;
+      if (x>=r.x && x<=r.x+r.width && y>=r.y && y<=r.y+r.height) {
+        editingNode = node;
+        editingDept = null;
+        document.getElementById('editName').value = node.name;
+        document.getElementById('editRole').value = node.role;
+        document.getElementById('modalTitle').textContent = 'Editar: ' + node.name;
+        const isDept = data.children.some(d => d.id === node.id);
+        const isPerson = !isDept && node.id !== 'root';
+        document.getElementById('addPersonBtn').style.display = isDept ? 'block' : 'none';
+        document.getElementById('delBtn').style.display = (isDept || isPerson) ? 'block' : 'none';
+        if (isDept) editingDept = node;
+        document.getElementById('editModal').classList.add('show');
+        return;
+      }
+    }
+  }
+};
+
+function saveEdit() {
+  if (editingNode) {
+    editingNode.name = document.getElementById('editName').value;
+    editingNode.role = document.getElementById('editRole').value;
+    draw();
+  }
+  closeModal();
+}
+
+function addPerson() {
+  if (editingDept) {
+    editingDept.children.push({
+      id: 'p'+Date.now(), name: 'Nueva Persona', role: 'Nuevo Puesto',
+      color: editingDept.color, icon: '👤', children: []
+    });
+    editingDept.expanded = true;
+    draw();
+    closeModal();
+  }
+}
+
+function deleteNode() {
+  if (!editingNode) return;
+  if (!confirm('¿Eliminar "' + editingNode.name + '"?')) return;
+  const deptIdx = data.children.findIndex(d => d.id === editingNode.id);
+  if (deptIdx >= 0) {
+    data.children.splice(deptIdx, 1);
+  } else {
+    data.children.forEach(dept => {
+      const pIdx = dept.children.findIndex(p => p.id === editingNode.id);
+      if (pIdx >= 0) dept.children.splice(pIdx, 1);
+    });
+  }
+  draw();
+  closeModal();
+}
+
+function addDepartment() {
+  const colors = ['#dcfce7','#f3e8ff','#fef3c7','#fce7f3','#dbeafe','#ffedd5'];
+  const c = colors[Math.floor(Math.random()*colors.length)];
+  data.children.push({
+    id: 'd'+Date.now(), name: 'Nuevo Dpto', role: 'Jefatura', color: c, icon: '📂', expanded: false,
+    children: [{ id: 'p'+Date.now(), name: 'Personal', role: 'Asistente', color: c, icon: '👤', children: [] }]
+  });
+  draw();
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('show');
+  editingNode = null;
+}
+
+function expandAll() { data.children.forEach(d => d.expanded = true); draw(); }
+function collapseAll() { data.children.forEach(d => d.expanded = false); draw(); }
+
+function exportImage() {
+  const link = document.createElement('a');
+  link.href = canvas.toDataURL('image/png');
+  link.download = 'Organigrama_ByC.png';
+  link.click();
+}
+
+function exportPDF() {
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width, canvas.height] });
+  pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+  pdf.save('Organigrama_ByC.pdf');
+}
+
+// ---- Firebase: limpiar datos antes de guardar (quitar rect/btnPos) ----
+function cleanForSave(node) {
+  const clean = {
+    id: node.id, name: node.name, role: node.role,
+    color: node.color, icon: node.icon, expanded: !!node.expanded,
+    children: (node.children || []).map(cleanForSave)
+  };
+  return clean;
+}
+
+function saveToFirebase() {
+  const clean = cleanForSave(data);
+  if (window._saveToFirebase) {
+    window._saveToFirebase(clean);
+  } else {
+    alert('Firebase aún cargando, intenta de nuevo en un momento.');
+  }
+}
+
+// Aplicar datos recibidos de Firebase
+window.applyRemoteData = function(remoteData) {
+  if (!remoteData) return;
+  const ensureChildren = (n) => { if (!n.children) n.children = []; n.children.forEach(ensureChildren); };
+  ensureChildren(remoteData);
+  data = remoteData;
+  draw();
+};
+
+draw();
+</script>
+</body>
+</html>
