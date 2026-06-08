@@ -25,9 +25,12 @@
   }
   .btn {
     padding: 0.6rem 1rem; border: 1px solid #d1d5db; border-radius: 8px;
-    background: white; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;
+    background: white; cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: all 0.2s ease;
   }
-  .btn:hover { background: #f3f4f6; }
+  .btn:hover { background: #f3f4f6; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  .btn:active { transform: translateY(0); }
+  #orgChart { transition: opacity 0.18s ease; }
   .btn.primary { background: #3b82f6; color: white; border-color: #3b82f6; }
   .btn.primary:hover { background: #2563eb; }
   .btn.save { background: #16a34a; color: white; border-color: #16a34a; }
@@ -37,9 +40,20 @@
   .canvas-wrapper { border: 1px solid #e5e7eb; border-radius: 12px; background: white; overflow: auto; }
   #orgChart { display: block; background: white; margin: 0 auto; }
 
-  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
-  .modal.show { display: flex; }
-  .modal-content { background: white; padding: 1.5rem; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 20px 25px rgba(0,0,0,0.15); }
+  .modal {
+    display: flex; position: fixed; inset: 0; background: rgba(0,0,0,0);
+    z-index: 1000; align-items: center; justify-content: center;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity 0.25s ease, background 0.25s ease, visibility 0.25s;
+  }
+  .modal.show { opacity: 1; visibility: visible; pointer-events: auto; background: rgba(0,0,0,0.5); }
+  .modal-content {
+    background: white; padding: 1.5rem; border-radius: 12px; max-width: 400px; width: 90%;
+    box-shadow: 0 20px 25px rgba(0,0,0,0.15);
+    transform: scale(0.9) translateY(10px); opacity: 0;
+    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.28s ease;
+  }
+  .modal.show .modal-content { transform: scale(1) translateY(0); opacity: 1; }
   .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 1rem; }
   .form-group { margin-bottom: 1rem; }
   .form-label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 0.5rem; color: #374151; }
@@ -436,7 +450,7 @@ canvas.onclick = (e) => {
       const d = Math.hypot(x-node.btnPos.x, y-node.btnPos.y);
       if (d < node.btnPos.size/2+6) {
         node.expanded = !node.expanded;
-        draw();
+        animateRedraw();
         return;
       }
     }
@@ -530,8 +544,16 @@ function closeModal() {
   editingNode = null;
 }
 
-function expandAll() { data.children.forEach(d => d.expanded = true); draw(); }
-function collapseAll() { data.children.forEach(d => d.expanded = false); draw(); }
+function animateRedraw() {
+  canvas.style.opacity = '0';
+  setTimeout(() => {
+    draw();
+    canvas.style.opacity = '1';
+  }, 180);
+}
+
+function expandAll() { data.children.forEach(d => d.expanded = true); animateRedraw(); }
+function collapseAll() { data.children.forEach(d => d.expanded = false); animateRedraw(); }
 
 function exportImage() {
   const link = document.createElement('a');
