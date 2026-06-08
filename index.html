@@ -356,7 +356,7 @@ function draw() {
   ctx.fillStyle = '#1f2937';
   ctx.font = 'bold 24px Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('GERENCIA FINANCIERA', centerX, 35);
+  ctx.fillText(data.name, centerX, 35);
   ctx.font = '12px Arial';
   ctx.fillStyle = '#6b7280';
   ctx.fillText('B&C Exportadores | Bajo Cero Productos Congelados', centerX, 52);
@@ -532,12 +532,12 @@ function handleDown(e) {
     }
   }
   const node = nodeAt(p.x, p.y);
-  if (node && node.id !== 'root') {
+  if (node) {
     dragState = {
       node, startX: p.x, startY: p.y,
       moved: false, type: getNodeType(node)
     };
-    canvas.style.cursor = 'grabbing';
+    canvas.style.cursor = node.id === 'root' ? 'pointer' : 'grabbing';
   }
 }
 
@@ -547,12 +547,11 @@ function handleMove(e) {
     const ddx = p.x - dragState.startX;
     const ddy = p.y - dragState.startY;
     if (Math.abs(ddx) > 4 || Math.abs(ddy) > 4) dragState.moved = true;
+    if (dragState.type === 'root') return; // la gerencia no se mueve
     if (dragState.moved) {
       e.preventDefault();
-      // Offset visual temporal de la caja arrastrada
       dragState.node.dx = ddx;
       dragState.node.dy = ddy;
-      // Detectar caja objetivo compatible
       dragState.node.dx = 0; dragState.node.dy = 0;
       const target = nodeAt(p.x, p.y);
       dragState.node.dx = ddx; dragState.node.dy = ddy;
@@ -561,7 +560,7 @@ function handleMove(e) {
     }
   } else {
     const node = nodeAt(p.x, p.y);
-    canvas.style.cursor = (node && node.id !== 'root') ? 'grab' : 'default';
+    canvas.style.cursor = node ? (node.id === 'root' ? 'pointer' : 'grab') : 'default';
   }
 }
 
