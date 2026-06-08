@@ -291,16 +291,25 @@ function calculateDimensions() {
   return { width: requiredWidth, height: Math.max(500, requiredHeight) };
 }
 
+let logicalW = 1400, logicalH = 500;
+
 function draw() {
   const dims = calculateDimensions();
-  canvas.width = dims.width;
-  canvas.height = dims.height;
+  logicalW = dims.width;
+  logicalH = dims.height;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = logicalW * dpr;
+  canvas.height = logicalH * dpr;
+  canvas.style.width = logicalW + 'px';
+  canvas.style.height = logicalH + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  ctx.clearRect(0, 0, logicalW, logicalH);
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, logicalW, logicalH);
 
-  const centerX = canvas.width / 2;
+  const centerX = logicalW / 2;
 
   ctx.fillStyle = '#1f2937';
   ctx.font = 'bold 24px Arial';
@@ -310,7 +319,7 @@ function draw() {
   ctx.fillStyle = '#6b7280';
   ctx.fillText('B&C Exportadores | Bajo Cero Productos Congelados', centerX, 52);
 
-  if (logoImage) ctx.drawImage(logoImage, canvas.width-90, 12, 70, 45);
+  if (logoImage) ctx.drawImage(logoImage, logicalW-90, 12, 70, 45);
 
   nodeMap.clear();
 
@@ -419,10 +428,8 @@ function draw() {
 
 canvas.onclick = (e) => {
   const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const x = (e.clientX - rect.left) * scaleX;
-  const y = (e.clientY - rect.top) * scaleY;
+  const x = (e.clientX - rect.left) * (logicalW / rect.width);
+  const y = (e.clientY - rect.top) * (logicalH / rect.height);
 
   for (let [id, node] of nodeMap) {
     if (node.btnPos) {
@@ -467,14 +474,27 @@ function saveEdit() {
 
 function addPerson() {
   if (editingDept) {
-    editingDept.children.push({
+    const newPerson = {
       id: 'p'+Date.now(), name: 'Nueva Persona', role: 'Nuevo Puesto',
       color: editingDept.color, icon: '👤', children: []
-    });
+    };
+    editingDept.children.push(newPerson);
     editingDept.expanded = true;
     draw();
-    closeModal();
+    openEditModal(newPerson, false);
   }
+}
+
+function openEditModal(node, isDept) {
+  editingNode = node;
+  editingDept = isDept ? node : null;
+  document.getElementById('editName').value = node.name;
+  document.getElementById('editRole').value = node.role;
+  document.getElementById('modalTitle').textContent = 'Editar: ' + node.name;
+  document.getElementById('addPersonBtn').style.display = isDept ? 'block' : 'none';
+  document.getElementById('delBtn').style.display = 'block';
+  document.getElementById('editName').select();
+  document.getElementById('editModal').classList.add('show');
 }
 
 function deleteNode() {
@@ -496,11 +516,13 @@ function deleteNode() {
 function addDepartment() {
   const colors = ['#dcfce7','#f3e8ff','#fef3c7','#fce7f3','#dbeafe','#ffedd5'];
   const c = colors[Math.floor(Math.random()*colors.length)];
-  data.children.push({
+  const newDept = {
     id: 'd'+Date.now(), name: 'Nuevo Dpto', role: 'Jefatura', color: c, icon: '📂', expanded: false,
     children: [{ id: 'p'+Date.now(), name: 'Personal', role: 'Asistente', color: c, icon: '👤', children: [] }]
-  });
+  };
+  data.children.push(newDept);
   draw();
+  openEditModal(newDept, true);
 }
 
 function closeModal() {
@@ -520,8 +542,8 @@ function exportImage() {
 
 function exportPDF() {
   const imgData = canvas.toDataURL('image/png');
-  const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width, canvas.height] });
-  pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+  const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'px', format: [logicalW, logicalH] });
+  pdf.addImage(imgData, 'PNG', 0, 0, logicalW, logicalH);
   pdf.save('Organigrama_ByC.pdf');
 }
 
