@@ -96,6 +96,7 @@
     <button class="btn" onclick="collapseAll()">- Contraer</button>
     <div class="sep"></div>
     <button class="btn" onclick="addDepartment()" style="color: #16a34a; border-color: #22c55e;">➕ Nuevo Dpto</button>
+    <button class="btn" onclick="reorderToOriginal()" title="Restaurar el orden original">↺ Reordenar</button>
     <div class="sep"></div>
     <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 0.6rem 1rem; border: 1px solid #d1d5db; border-radius: 8px; background: white; font-weight: 500; font-size: 13px;">
       📎 Logo
@@ -103,7 +104,7 @@
     </label>
   </div>
 
-  <div class="info">💡 Clic en ⊕ para expandir. Clic en cualquier caja para editar. Pulsa <strong>Guardar cambios</strong> para sincronizar con todos en tiempo real.</div>
+  <div class="info">💡 <strong>Arrastra</strong> una caja sobre otra del mismo tipo para <strong>intercambiar su lugar</strong>. Clic en ⊕ para expandir. Clic (sin arrastrar) para editar. Pulsa <strong>Guardar cambios</strong> para sincronizar.</div>
 
   <div class="canvas-wrapper">
     <canvas id="orgChart" width="1400" height="500"></canvas>
@@ -114,11 +115,15 @@
   <div class="modal-content">
     <div class="modal-title" id="modalTitle">Editar</div>
     <div class="form-group">
-      <label class="form-label">Nombre</label>
+      <label class="form-label" id="labelName">Nombre</label>
       <input type="text" class="form-input" id="editName">
     </div>
+    <div class="form-group" id="bossGroup" style="display: none;">
+      <label class="form-label">👤 Jefe del departamento</label>
+      <input type="text" class="form-input" id="editBoss" placeholder="Nombre del jefe">
+    </div>
     <div class="form-group">
-      <label class="form-label">Puesto</label>
+      <label class="form-label" id="labelRole">Puesto</label>
       <input type="text" class="form-input" id="editRole">
     </div>
     <div id="addPersonBtn" style="display: none;">
@@ -224,11 +229,11 @@ let suppressRemote = false;
 let data = {
   id: 'root', name: 'GERENCIA FINANCIERA', role: 'Dirección General', color: '#dbeafe', icon: '📊', expanded: true,
   children: [
-    { id: 'contab', name: 'Contabilidad', role: 'Jefe de Contabilidad', color: '#dcfce7', icon: '📋', expanded: false,
+    { id: 'contab', name: 'Contabilidad', role: 'Departamento Contable', boss: '', color: '#dcfce7', icon: '📋', expanded: false,
       children: [
-        { id: 'p1', name: 'Marlen Arias', role: 'Jefatura Administrativa SC', color: '#bbf7d0', icon: '👔', children: [] },
+        { id: 'p1', name: 'Marlen Arias', role: 'Jefatura Administrativa SC', color: '#bbf7d0', icon: '👤', children: [] },
         { id: 'p2', name: 'Nidia', role: 'Asistente Cuentas x Pagar SC', color: '#dcfce7', icon: '👤', children: [] },
-        { id: 'p3', name: 'VACANTE', role: 'Asistente Cuentas x Pagar Ujarrás', color: '#fee2e2', icon: '⚠️', children: [] },
+        { id: 'p3', name: 'VACANTE', role: 'Asistente Cuentas x Pagar Ujarrás', color: '#fee2e2', icon: '👤', children: [] },
         { id: 'p4', name: 'José Luis', role: 'Asistente Cuentas x Pagar BC', color: '#dcfce7', icon: '👤', children: [] },
         { id: 'p5', name: 'Jonathan Ramos', role: 'Cuentas x Pagar Agricultores', color: '#dcfce7', icon: '👤', children: [] },
         { id: 'p6', name: 'Kevin & Daniela', role: 'Asistente Costos PT', color: '#dcfce7', icon: '👤', children: [] },
@@ -237,27 +242,27 @@ let data = {
         { id: 'p9', name: 'Viviana Ovando', role: 'Asistente Costos Agricultura', color: '#dcfce7', icon: '👤', children: [] },
         { id: 'p10', name: 'Marta Víquez', role: 'Asistente de Jefatura Contabilidad', color: '#dcfce7', icon: '👤', children: [] },
         { id: 'p11', name: 'Keren Calvo', role: 'Asistente Control de Activos', color: '#dcfce7', icon: '👤', children: [] },
-        { id: 'p12', name: 'Yarenis, Rocío, Karla', role: 'Recepcionistas', color: '#dcfce7', icon: '👥', children: [] }
+        { id: 'p12', name: 'Yarenis, Rocío, Karla', role: 'Recepcionistas', color: '#dcfce7', icon: '👤', children: [] }
       ]
     },
-    { id: 'control', name: 'Control Interno', role: 'Sergio Ballestero', color: '#f3e8ff', icon: '🛡️', expanded: false,
+    { id: 'control', name: 'Control Interno', role: 'Auditoría y Cumplimiento', boss: 'Sergio Ballestero', color: '#f3e8ff', icon: '🛡️', expanded: false,
       children: [
         { id: 'p13', name: 'Michelle', role: 'Auxiliar Control Interno', color: '#f3e8ff', icon: '👤', children: [] },
         { id: 'p14', name: 'María Paula', role: 'Auxiliar Control Interno', color: '#f3e8ff', icon: '👤', children: [] }
       ]
     },
-    { id: 'tesor', name: 'Tesorería', role: 'Gestión de Efectivo', color: '#fef3c7', icon: '💰', expanded: false,
+    { id: 'tesor', name: 'Tesorería', role: 'Gestión de Efectivo', boss: 'Desireth', color: '#fef3c7', icon: '💰', expanded: false,
       children: [
-        { id: 'p15', name: 'Desireth', role: 'Tesorera', color: '#fde68a', icon: '👔', children: [] },
+        { id: 'p15', name: 'Desireth', role: 'Tesorera', color: '#fde68a', icon: '👤', children: [] },
         { id: 'p16', name: 'Daniela Meza', role: 'Tesorería Cuentas x Pagar', color: '#fef3c7', icon: '👤', children: [] }
       ]
     },
-    { id: 'analisis', name: 'Análisis Financiero', role: 'Reportes y Análisis', color: '#fce7f3', icon: '📈', expanded: false,
+    { id: 'analisis', name: 'Análisis Financiero', role: 'Reportes y Análisis', boss: 'Ana Christina Calvo', color: '#fce7f3', icon: '📈', expanded: false,
       children: [
         { id: 'p17', name: 'Ana Christina Calvo', role: 'Analista Financiero', color: '#fce7f3', icon: '👤', children: [] }
       ]
     },
-    { id: 'ti', name: 'TI', role: 'Tecnología', color: '#dbeafe', icon: '💻', expanded: false,
+    { id: 'ti', name: 'TI', role: 'Tecnología', boss: '', color: '#dbeafe', icon: '💻', expanded: false,
       children: [
         { id: 'p18', name: 'Guillermo Quesada', role: 'Soporte Funcional', color: '#dbeafe', icon: '👤', children: [] },
         { id: 'p19', name: 'Kevin', role: 'Soporte Técnico', color: '#dbeafe', icon: '👤', children: [] }
@@ -265,6 +270,29 @@ let data = {
     }
   ]
 };
+
+function captureOrder(node) {
+  const order = {};
+  order[node.id] = (node.children||[]).map(c => c.id);
+  (node.children||[]).forEach(c => Object.assign(order, captureOrder(c)));
+  return order;
+}
+const ORIGINAL_ORDER = captureOrder(data);
+
+function reorderToOriginal() {
+  const apply = (node) => {
+    const ord = ORIGINAL_ORDER[node.id];
+    if (ord && node.children && node.children.length) {
+      node.children.sort((a, b) => {
+        const ia = ord.indexOf(a.id), ib = ord.indexOf(b.id);
+        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+      });
+      node.children.forEach(apply);
+    }
+  };
+  apply(data);
+  animateRedraw();
+}
 
 function roundRect(x, y, w, h, r) {
   if (w < 2*r) r = w/2;
@@ -301,8 +329,8 @@ function calculateDimensions() {
   data.children.forEach(dept => {
     if (dept.expanded) maxExpanded = Math.max(maxExpanded, dept.children.length);
   });
-  const requiredHeight = 300 + (maxExpanded * 72) + 80;
-  return { width: requiredWidth, height: Math.max(500, requiredHeight) };
+  const requiredHeight = 320 + (maxExpanded * 72) + 80;
+  return { width: requiredWidth, height: Math.max(520, requiredHeight) };
 }
 
 let logicalW = 1400, logicalH = 500;
@@ -338,15 +366,18 @@ function draw() {
   nodeMap.clear();
 
   const rootY = 75, rootW = 200, rootH = 75;
+  const rDx = data.dx||0, rDy = data.dy||0;
+  const rCx = centerX + rDx, rTop = rootY + rDy;
   ctx.fillStyle = data.color;
-  roundRect(centerX-rootW/2, rootY, rootW, rootH, 10);
+  roundRect(rCx-rootW/2, rTop, rootW, rootH, 10);
   ctx.fill();
   ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = '#1f2937'; ctx.font = '14px Arial'; ctx.textAlign = 'center';
-  ctx.fillText(data.icon + ' ' + data.name, centerX, rootY+28);
+  ctx.fillText(data.icon + ' ' + data.name, rCx, rTop+28);
   ctx.font = '11px Arial'; ctx.fillStyle = '#6b7280';
-  ctx.fillText(data.role, centerX, rootY+52);
-  data.rect = { x: centerX-rootW/2, y: rootY, width: rootW, height: rootH };
+  ctx.fillText(data.role, rCx, rTop+52);
+  data.rect = { x: rCx-rootW/2, y: rTop, width: rootW, height: rootH };
+  data._cx = rCx; data._cy = rTop;
   nodeMap.set(data.id, data);
 
   const deptY = 200;
@@ -354,40 +385,39 @@ function draw() {
   const totalW = (numDepts-1) * DEPT_SPACING;
   const startX = centerX - totalW/2;
 
-  ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(centerX, rootY+rootH);
-  ctx.lineTo(centerX, deptY-30);
-  ctx.stroke();
-
-  if (numDepts > 1) {
-    ctx.beginPath();
-    ctx.moveTo(startX, deptY-30);
-    ctx.lineTo(startX + totalW, deptY-30);
-    ctx.stroke();
-  }
-
   data.children.forEach((dept, i) => {
-    const deptX = startX + i * DEPT_SPACING;
-    const deptW = 150, deptH = 70;
+    const baseDeptX = startX + i * DEPT_SPACING;
+    const dDx = dept.dx||0, dDy = dept.dy||0;
+    const deptX = baseDeptX + dDx;
+    const dTop = deptY + dDy;
+    const deptW = 160, deptH = dept.boss ? 84 : 70;
 
     ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(deptX, deptY-30);
-    ctx.lineTo(deptX, deptY);
+    ctx.moveTo(rCx, rTop+rootH);
+    ctx.lineTo(deptX, dTop);
     ctx.stroke();
 
     ctx.fillStyle = dept.color;
-    roundRect(deptX-deptW/2, deptY, deptW, deptH, 10);
+    roundRect(deptX-deptW/2, dTop, deptW, deptH, 10);
     ctx.fill();
-    ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2; ctx.stroke();
+    if (dropTargetId === dept.id) {
+      ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 4;
+    } else {
+      ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 2;
+    }
+    ctx.stroke();
     ctx.fillStyle = '#1f2937'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center';
-    ctx.fillText(dept.icon + ' ' + dept.name, deptX, deptY+25);
+    ctx.fillText(dept.icon + ' ' + dept.name, deptX, dTop+22);
     ctx.font = '10px Arial'; ctx.fillStyle = '#6b7280';
-    ctx.fillText(dept.role, deptX, deptY+45);
+    ctx.fillText(dept.role, deptX, dTop+39);
+    if (dept.boss) {
+      ctx.font = 'bold 11px Arial'; ctx.fillStyle = '#374151';
+      ctx.fillText('👤 ' + dept.boss, deptX, dTop+60);
+    }
 
     if (dept.children.length > 0) {
-      const bs = 24, bx = deptX, by = deptY+deptH+18;
+      const bs = 24, bx = deptX, by = dTop+deptH+18;
       ctx.fillStyle = dept.expanded ? '#3b82f6' : '#22c55e';
       ctx.beginPath();
       ctx.arc(bx, by, bs/2, 0, Math.PI*2);
@@ -399,55 +429,101 @@ function draw() {
       dept.btnPos = { x: bx, y: by, size: bs };
     }
 
-    dept.rect = { x: deptX-deptW/2, y: deptY, width: deptW, height: deptH };
+    dept.rect = { x: deptX-deptW/2, y: dTop, width: deptW, height: deptH };
+    dept._cx = deptX; dept._cy = dTop;
     nodeMap.set(dept.id, dept);
 
     if (dept.expanded && dept.children.length > 0) {
-      const teamStartY = deptY + deptH + 50;
+      const teamStartY = dTop + deptH + 50;
       const teamSpacing = 72;
 
       ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(deptX, deptY+deptH+30);
+      ctx.moveTo(deptX, dTop+deptH+30);
       ctx.lineTo(deptX, teamStartY);
       ctx.stroke();
 
       dept.children.forEach((person, j) => {
-        const py = teamStartY + j * teamSpacing;
+        const basePy = teamStartY + j * teamSpacing;
+        const pDx = person.dx||0, pDy = person.dy||0;
+        const px = deptX + pDx;
+        const py = basePy + pDy;
         const pw = 170, ph = 56;
 
-        if (j > 0) {
-          ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(deptX, py - teamSpacing + ph);
-          ctx.lineTo(deptX, py);
-          ctx.stroke();
+        ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (j === 0) {
+          ctx.moveTo(deptX, teamStartY);
+        } else {
+          ctx.moveTo(deptX, basePy - teamSpacing + ph);
         }
+        ctx.lineTo(px, py);
+        ctx.stroke();
 
         ctx.fillStyle = person.color;
-        roundRect(deptX-pw/2, py, pw, ph, 8);
+        roundRect(px-pw/2, py, pw, ph, 8);
         ctx.fill();
-        ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1; ctx.stroke();
+        if (dropTargetId === person.id) {
+          ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3;
+        } else {
+          ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 1;
+        }
+        ctx.stroke();
         ctx.fillStyle = '#1f2937'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
-        ctx.fillText(person.icon + ' ' + person.name, deptX, py+22);
+        ctx.fillText(person.icon + ' ' + person.name, px, py+22);
         ctx.font = '9px Arial'; ctx.fillStyle = '#6b7280';
-        ctx.fillText(person.role, deptX, py+40);
+        ctx.fillText(person.role, px, py+40);
 
-        person.rect = { x: deptX-pw/2, y: py, width: pw, height: ph };
+        person.rect = { x: px-pw/2, y: py, width: pw, height: ph };
+        person._cx = px; person._cy = py;
         nodeMap.set(person.id, person);
       });
     }
   });
 }
 
-canvas.onclick = (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * (logicalW / rect.width);
-  const y = (e.clientY - rect.top) * (logicalH / rect.height);
+let dragState = null;
+let dropTargetId = null;
 
+function getCanvasPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+  return {
+    x: (cx - rect.left) * (logicalW / rect.width),
+    y: (cy - rect.top) * (logicalH / rect.height)
+  };
+}
+
+function nodeAt(x, y) {
+  for (let [id, node] of nodeMap) {
+    if (node.rect) {
+      const r = node.rect;
+      if (x>=r.x && x<=r.x+r.width && y>=r.y && y<=r.y+r.height) return node;
+    }
+  }
+  return null;
+}
+
+function findParent(targetId) {
+  if (data.children.some(d => d.id === targetId)) return data;
+  for (const dept of data.children) {
+    if (dept.children.some(p => p.id === targetId)) return dept;
+  }
+  return null;
+}
+
+function getNodeType(node) {
+  if (node.id === 'root') return 'root';
+  if (data.children.some(d => d.id === node.id)) return 'dept';
+  return 'person';
+}
+
+function handleDown(e) {
+  const p = getCanvasPos(e);
   for (let [id, node] of nodeMap) {
     if (node.btnPos) {
-      const d = Math.hypot(x-node.btnPos.x, y-node.btnPos.y);
+      const d = Math.hypot(p.x-node.btnPos.x, p.y-node.btnPos.y);
       if (d < node.btnPos.size/2+6) {
         node.expanded = !node.expanded;
         animateRedraw();
@@ -455,32 +531,126 @@ canvas.onclick = (e) => {
       }
     }
   }
+  const node = nodeAt(p.x, p.y);
+  if (node && node.id !== 'root') {
+    dragState = {
+      node, startX: p.x, startY: p.y,
+      moved: false, type: getNodeType(node)
+    };
+    canvas.style.cursor = 'grabbing';
+  }
+}
 
-  for (let [id, node] of nodeMap) {
-    if (node.rect) {
-      const r = node.rect;
-      if (x>=r.x && x<=r.x+r.width && y>=r.y && y<=r.y+r.height) {
-        editingNode = node;
-        editingDept = null;
-        document.getElementById('editName').value = node.name;
-        document.getElementById('editRole').value = node.role;
-        document.getElementById('modalTitle').textContent = 'Editar: ' + node.name;
-        const isDept = data.children.some(d => d.id === node.id);
-        const isPerson = !isDept && node.id !== 'root';
-        document.getElementById('addPersonBtn').style.display = isDept ? 'block' : 'none';
-        document.getElementById('delBtn').style.display = (isDept || isPerson) ? 'block' : 'none';
-        if (isDept) editingDept = node;
-        document.getElementById('editModal').classList.add('show');
-        return;
-      }
+function handleMove(e) {
+  const p = getCanvasPos(e);
+  if (dragState) {
+    const ddx = p.x - dragState.startX;
+    const ddy = p.y - dragState.startY;
+    if (Math.abs(ddx) > 4 || Math.abs(ddy) > 4) dragState.moved = true;
+    if (dragState.moved) {
+      e.preventDefault();
+      // Offset visual temporal de la caja arrastrada
+      dragState.node.dx = ddx;
+      dragState.node.dy = ddy;
+      // Detectar caja objetivo compatible
+      dragState.node.dx = 0; dragState.node.dy = 0;
+      const target = nodeAt(p.x, p.y);
+      dragState.node.dx = ddx; dragState.node.dy = ddy;
+      dropTargetId = (target && target.id !== dragState.node.id && getNodeType(target) === dragState.type) ? target.id : null;
+      draw();
+    }
+  } else {
+    const node = nodeAt(p.x, p.y);
+    canvas.style.cursor = (node && node.id !== 'root') ? 'grab' : 'default';
+  }
+}
+
+function handleUp(e) {
+  if (!dragState) return;
+  const node = dragState.node;
+  const wasMoved = dragState.moved;
+  const dType = dragState.type;
+  dragState = null;
+  canvas.style.cursor = 'default';
+
+  // Limpiar offset visual temporal
+  delete node.dx; delete node.dy;
+
+  if (!wasMoved) {
+    dropTargetId = null;
+    openEditFor(node);
+    return;
+  }
+
+  // Intentar intercambio si se soltó sobre una caja compatible
+  if (dropTargetId && dropTargetId !== node.id) {
+    const targetType = (function(){
+      const t = nodeMap.get(dropTargetId);
+      return t ? getNodeType(t) : null;
+    })();
+    if (targetType === dType) {
+      swapNodes(node.id, dropTargetId, dType);
     }
   }
-};
+  dropTargetId = null;
+  draw();
+}
+
+function swapNodes(idA, idB, type) {
+  if (type === 'dept') {
+    const arr = data.children;
+    const ia = arr.findIndex(d => d.id === idA);
+    const ib = arr.findIndex(d => d.id === idB);
+    if (ia >= 0 && ib >= 0) { [arr[ia], arr[ib]] = [arr[ib], arr[ia]]; }
+  } else if (type === 'person') {
+    const parentA = findParent(idA);
+    const parentB = findParent(idB);
+    if (!parentA || !parentB) return;
+    const ia = parentA.children.findIndex(p => p.id === idA);
+    const ib = parentB.children.findIndex(p => p.id === idB);
+    if (ia < 0 || ib < 0) return;
+    if (parentA === parentB) {
+      [parentA.children[ia], parentA.children[ib]] = [parentA.children[ib], parentA.children[ia]];
+    } else {
+      // Intercambiar entre departamentos distintos
+      const a = parentA.children[ia];
+      const b = parentB.children[ib];
+      parentA.children[ia] = b;
+      parentB.children[ib] = a;
+    }
+  }
+}
+
+function openEditFor(node) {
+  editingNode = node;
+  editingDept = null;
+  const isDept = data.children.some(d => d.id === node.id);
+  const isPerson = !isDept && node.id !== 'root';
+  document.getElementById('editName').value = node.name;
+  document.getElementById('editRole').value = node.role;
+  document.getElementById('modalTitle').textContent = 'Editar: ' + node.name;
+  document.getElementById('labelName').textContent = isDept ? 'Departamento' : 'Nombre';
+  document.getElementById('bossGroup').style.display = isDept ? 'block' : 'none';
+  if (isDept) document.getElementById('editBoss').value = node.boss || '';
+  document.getElementById('addPersonBtn').style.display = isDept ? 'block' : 'none';
+  document.getElementById('delBtn').style.display = (isDept || isPerson) ? 'block' : 'none';
+  if (isDept) editingDept = node;
+  document.getElementById('editModal').classList.add('show');
+}
+
+canvas.addEventListener('mousedown', handleDown);
+window.addEventListener('mousemove', handleMove);
+window.addEventListener('mouseup', handleUp);
+canvas.addEventListener('touchstart', handleDown, { passive: false });
+window.addEventListener('touchmove', handleMove, { passive: false });
+window.addEventListener('touchend', handleUp);
 
 function saveEdit() {
   if (editingNode) {
     editingNode.name = document.getElementById('editName').value;
     editingNode.role = document.getElementById('editRole').value;
+    const isDept = data.children.some(d => d.id === editingNode.id);
+    if (isDept) editingNode.boss = document.getElementById('editBoss').value;
     draw();
   }
   closeModal();
@@ -505,6 +675,9 @@ function openEditModal(node, isDept) {
   document.getElementById('editName').value = node.name;
   document.getElementById('editRole').value = node.role;
   document.getElementById('modalTitle').textContent = 'Editar: ' + node.name;
+  document.getElementById('labelName').textContent = isDept ? 'Departamento' : 'Nombre';
+  document.getElementById('bossGroup').style.display = isDept ? 'block' : 'none';
+  if (isDept) document.getElementById('editBoss').value = node.boss || '';
   document.getElementById('addPersonBtn').style.display = isDept ? 'block' : 'none';
   document.getElementById('delBtn').style.display = 'block';
   document.getElementById('editName').select();
@@ -573,6 +746,7 @@ function exportPDF() {
 function cleanForSave(node) {
   const clean = {
     id: node.id, name: node.name, role: node.role,
+    boss: node.boss || '',
     color: node.color, icon: node.icon, expanded: !!node.expanded,
     children: (node.children || []).map(cleanForSave)
   };
